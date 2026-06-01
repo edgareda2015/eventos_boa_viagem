@@ -21,19 +21,36 @@ const AdminLogin: React.FC = () => {
     setLoading(true);
 
     try {
+      // 1. Inicia o processo de login
       const result = await signIn.create({
         identifier: email,
         password,
       });
 
+      // 2. Se completar direto, entra
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
         navigate('/admin');
-      } else {
-        console.log(result);
+        return;
       }
+
+      // 3. Se necessitar do primeiro fator (senha) de forma explícita por segurança
+      if (result.status === 'needs_first_factor') {
+        const firstFactorResult = await signIn.attemptFirstFactor({
+          strategy: 'password',
+          password: password,
+        });
+        if (firstFactorResult.status === 'complete') {
+          await setActive({ session: firstFactorResult.createdSessionId });
+          navigate('/admin');
+          return;
+        }
+      }
+
+      // Caso caia em outro status não mapeado (como validações pendentes)
+      setError('Acesso requer confirmação adicional. Verifique as configurações de segurança ou use a redefinição de senha.');
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Erro ao realizar login.');
+      setError(err.errors?.[0]?.message || 'Erro ao realizar login. Verifique seu e-mail e senha.');
     } finally {
       setLoading(false);
     }

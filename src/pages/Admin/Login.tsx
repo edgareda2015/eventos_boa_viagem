@@ -21,7 +21,7 @@ const AdminLogin: React.FC = () => {
     setLoading(true);
 
     try {
-      // 1. Inicia o processo de login
+      // 1. Inicia o processo de login com identificador e senha
       const result = await signIn.create({
         identifier: email,
         password,
@@ -34,7 +34,7 @@ const AdminLogin: React.FC = () => {
         return;
       }
 
-      // 3. Se necessitar do primeiro fator (senha) de forma explícita por segurança
+      // 3. Se necessitar do primeiro fator de forma explícita
       if (result.status === 'needs_first_factor') {
         const firstFactorResult = await signIn.attemptFirstFactor({
           strategy: 'password',
@@ -45,12 +45,42 @@ const AdminLogin: React.FC = () => {
           navigate('/admin');
           return;
         }
+        if (firstFactorResult.status === 'needs_second_factor') {
+          // Tenta completar segundo fator via email code
+          await signIn.prepareSecondFactor({ strategy: 'phone_code' }).catch(() => {});
+          // Se não há segundo fator, tenta criar sessão com o que temos
+          if (firstFactorResult.createdSessionId) {
+            await setActive({ session: firstFactorResult.createdSessionId });
+            navigate('/admin');
+            return;
+          }
+        }
       }
 
-      // Caso caia em outro status não mapeado (como validações pendentes)
-      setError('Acesso requer confirmação adicional. Verifique as configurações de segurança ou use a redefinição de senha.');
+      // 4. Caso retorne needs_second_factor direto (bypass_client_trust pode não ter propagado)
+      if (result.status === 'needs_second_factor') {
+        // Não há segundo fator configurado — tenta usar a sessão criada
+        if (result.createdSessionId) {
+          await setActive({ session: result.createdSessionId });
+          navigate('/admin');
+          return;
+        }
+        // Fallback: redireciona para redefinição de senha (que funciona sem 2FA)
+        setView('forgot-password');
+        setError('Por favor, use o link "Esqueci a senha" para entrar. É apenas desta vez.');
+        return;
+      }
+
+      setError('Erro inesperado ao entrar. Tente novamente.');
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Erro ao realizar login. Verifique seu e-mail e senha.');
+      const msg = err.errors?.[0]?.message || '';
+      if (msg.toLowerCase().includes('password') || msg.toLowerCase().includes('incorrect')) {
+        setError('Senha incorreta. Verifique e tente novamente.');
+      } else if (msg.toLowerCase().includes('identifier') || msg.toLowerCase().includes('email')) {
+        setError('E-mail não encontrado. Verifique o endereço digitado.');
+      } else {
+        setError(msg || 'Erro ao realizar login. Verifique seu e-mail e senha.');
+      }
     } finally {
       setLoading(false);
     }

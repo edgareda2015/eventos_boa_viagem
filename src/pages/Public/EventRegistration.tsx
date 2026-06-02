@@ -82,6 +82,9 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [registeredInscrito, setRegisteredInscrito] = useState<Inscrito | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState(5);
+  const [redirectUrl, setRedirectUrl] = useState('');
 
   // Fetch Countries on Mount
   useEffect(() => {
@@ -214,6 +217,82 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
     }));
   }, [formData.escolaridade]);
 
+  // Countdown para redirecionamento
+  useEffect(() => {
+    if (!isRedirecting || !redirectUrl) return;
+    setRedirectCountdown(5);
+    const interval = setInterval(() => {
+      setRedirectCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          window.location.href = redirectUrl;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRedirecting, redirectUrl]);
+
+  // Tela de transição com link externo
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-gradient-to-br from-green-50 to-blue-50">
+        <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl shadow-green-100 border border-gray-100 overflow-hidden text-center">
+          {/* Barra de progresso animada */}
+          <div className="h-2 bg-gray-100">
+            <div
+              className="h-2 bg-gradient-to-r from-green-400 to-primary transition-all duration-1000"
+              style={{ width: `${((5 - redirectCountdown) / 5) * 100}%` }}
+            />
+          </div>
+
+          <div className="p-8 md:p-12">
+            {/* Ícone de sucesso */}
+            <div className="size-24 bg-green-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
+              <span className="material-symbols-outlined text-green-500 text-5xl">check_circle</span>
+            </div>
+
+            {/* Mensagem principal */}
+            <h2 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">Inscrição Confirmada!</h2>
+            <p className="text-primary font-black text-base uppercase tracking-wide mb-6">{evento.nome}</p>
+
+            {/* Aviso de acesso liberado */}
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-8 text-left">
+              <div className="flex items-start gap-3">
+                <div className="size-10 bg-primary rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="material-symbols-outlined text-white text-xl">lock_open</span>
+                </div>
+                <div>
+                  <p className="font-black text-gray-900 text-sm mb-1">Acesso Liberado!</p>
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    Sua inscrição neste evento foi concluída com sucesso. O acesso à plataforma está liberado — clique no botão abaixo para fazer seu cadastro.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Contador */}
+            <p className="text-gray-400 text-sm font-medium mb-5">
+              Redirecionando automaticamente em{' '}
+              <span className="font-black text-primary text-lg">{redirectCountdown}</span>{' '}
+              segundo{redirectCountdown !== 1 ? 's' : ''}...
+            </p>
+
+            {/* Botão de acesso imediato */}
+            <button
+              onClick={() => { window.location.href = redirectUrl; }}
+              className="w-full bg-primary text-white py-4 rounded-2xl font-black text-base hover:bg-primary-dark transition-all shadow-xl shadow-primary/20 active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-xl">open_in_new</span>
+              Acessar a Plataforma Agora
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center animate-pulse">
@@ -305,9 +384,11 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
     setIsSubmitting(true);
     onRegister(evento.id, payload)
       .then(async (result) => {
-        // Redireciona se houver link externo (qualquer tipo de evento)
+        // Mostra tela de transição se houver link externo
         if (evento.linkExterno) {
-          window.location.href = evento.linkExterno;
+          setRedirectUrl(evento.linkExterno);
+          setIsRedirecting(true);
+          setIsSubmitting(false);
           return;
         }
 

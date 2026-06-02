@@ -87,7 +87,7 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
   const [registeredInscrito, setRegisteredInscrito] = useState<Inscrito | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const [redirectCountdown, setRedirectCountdown] = useState(13);
+  const [redirectCountdown, setRedirectCountdown] = useState(3);
   const [redirectUrl, setRedirectUrl] = useState('');
   const [startCountdown, setStartCountdown] = useState(false);
 
@@ -242,7 +242,7 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
   // Countdown para redirecionamento
   useEffect(() => {
     if (!isRedirecting || !redirectUrl || !startCountdown) return;
-    setRedirectCountdown(13);
+    setRedirectCountdown(3);
     const interval = setInterval(() => {
       setRedirectCountdown(prev => {
         if (prev <= 1) {
@@ -265,7 +265,7 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
           <div className="h-2 bg-gray-100">
             <div
               className="h-2 bg-gradient-to-r from-green-400 to-primary transition-all duration-1000"
-              style={{ width: startCountdown ? `${((13 - redirectCountdown) / 13) * 100}%` : '0%' }}
+              style={{ width: startCountdown ? `${((3 - redirectCountdown) / 3) * 100}%` : '0%' }}
             />
           </div>
 
@@ -368,7 +368,7 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
             ) : (
               <p className="text-gray-400 text-sm font-medium mb-5 flex items-center justify-center gap-2">
                 <span className="material-symbols-outlined text-amber-500 text-base animate-bounce">warning</span>
-                Aguardando download do comprovante para redirecionar (13s)
+                Aguardando download do comprovante para redirecionar (3s)
               </p>
             )}
           </div>

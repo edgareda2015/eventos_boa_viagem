@@ -294,17 +294,6 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
               </div>
             </div>
 
-            {/* QR Code */}
-            {qrCodeDataUrl && (
-              <div className="flex flex-col items-center justify-center my-6">
-                <div className="p-3 border-2 border-primary rounded-2xl bg-white shadow-md">
-                  <img src={qrCodeDataUrl} alt="QR Code" className="size-40 object-contain mx-auto" />
-                </div>
-                <p className="text-primary text-[10px] font-black uppercase tracking-wider mt-2">
-                  Apresente na entrada do evento
-                </p>
-              </div>
-            )}
 
             {/* Dados do Participante */}
             <div className="bg-gray-50 p-6 rounded-3xl text-left border border-gray-100 mb-6 space-y-4">

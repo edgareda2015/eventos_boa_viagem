@@ -305,7 +305,8 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
     setIsSubmitting(true);
     onRegister(evento.id, payload)
       .then(async (result) => {
-        if (isLinkExterno && evento.linkExterno) {
+        // Redireciona se houver link externo (qualquer tipo de evento)
+        if (evento.linkExterno) {
           window.location.href = evento.linkExterno;
           return;
         }

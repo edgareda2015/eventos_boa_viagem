@@ -152,21 +152,21 @@ const AdminEventForm: React.FC<AdminEventFormProps> = ({ onSave, onUpload, initi
             </p>
           </div>
 
-          {formData.tipo === 'link_externo' && (
-            <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
-              <Input
-                label="Link Externo de Redirecionamento"
-                type="url"
-                placeholder="Ex: https://av1.uninassau.edu.br/..."
-                value={formData.linkExterno}
-                onChange={e => setFormData({ ...formData, linkExterno: e.target.value })}
-                required={formData.tipo === 'link_externo'}
-              />
-              <p className="text-[10px] text-blue-500 font-bold mt-2">
-                * Os alunos acessarão a página, informarão a Matrícula e logo serão redirecionados para essa URL.
-              </p>
-            </div>
-          )}
+          <div className={`p-6 rounded-2xl border ${formData.tipo === 'link_externo' ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
+            <Input
+              label={formData.tipo === 'link_externo' ? 'Link Externo de Redirecionamento' : 'Link Externo (Opcional)'}
+              type="url"
+              placeholder="Ex: https://av1.uninassau.edu.br/..."
+              value={formData.linkExterno}
+              onChange={e => setFormData({ ...formData, linkExterno: e.target.value })}
+              required={formData.tipo === 'link_externo'}
+            />
+            <p className={`text-[10px] font-bold mt-2 ${formData.tipo === 'link_externo' ? 'text-blue-500' : 'text-gray-400'}`}>
+              {formData.tipo === 'link_externo'
+                ? '* Obrigatório: os alunos informarão a Matrícula e serão redirecionados para essa URL.'
+                : '* Opcional: se preenchido, será exibido um botão de acesso externo na página do evento.'}
+            </p>
+          </div>
 
           <div className="space-y-2">
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Imagem do Evento (Opcional)</label>

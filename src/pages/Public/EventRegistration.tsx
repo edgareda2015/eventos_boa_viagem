@@ -210,8 +210,7 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
 
   const showCourseField =
     (showGradInterest && formData.interesseGraduacao === 'Sim') ||
-    (showHigherInterest && formData.interesseTipo === 'Segunda Graduação') ||
-    (showHigherInterest && formData.interesseTipo === 'Pós-graduação');
+    (showHigherInterest && formData.interesseTipo === 'Segunda Graduação');
 
   useEffect(() => {
     setFormData(prev => ({
@@ -383,15 +382,6 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
                 Aguardando download do comprovante para redirecionar (13s)
               </p>
             )}
-
-            {/* Botão de acesso imediato */}
-            <button
-              onClick={() => { window.location.href = redirectUrl; }}
-              className="w-full bg-primary text-white py-4 rounded-2xl font-black text-base hover:bg-primary-dark transition-all shadow-xl shadow-primary/20 active:scale-[0.98] flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-xl">open_in_new</span>
-              Acessar a Plataforma Agora
-            </button>
           </div>
         </div>
 
@@ -430,6 +420,15 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
       </div>
     );
   }
+  const isInterestValid =
+    showGradInterest
+      ? (formData.interesseGraduacao === 'Não' || (formData.interesseGraduacao === 'Sim' && formData.cursoInteresse !== ''))
+      : showHigherInterest
+        ? (formData.interesseTipo === 'Não tenho interesse no momento' ||
+           formData.interesseTipo === 'Pós-graduação' ||
+           (formData.interesseTipo === 'Segunda Graduação' && formData.cursoInteresse !== ''))
+        : true;
+
   const isFormValid = isLinkExterno
     ? formData.matricula.trim().length === 8
     : isExterno
@@ -447,7 +446,7 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
         formData.escolaridade !== '' &&
         (!showGradInterest || formData.interesseGraduacao !== '') &&
         (!showHigherInterest || formData.interesseTipo !== '') &&
-        (formData.interesseGraduacao === 'Não' || formData.cursoInteresse !== ''));
+        isInterestValid);
 
 
 

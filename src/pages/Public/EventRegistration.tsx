@@ -54,6 +54,10 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
   const navigate = useNavigate();
   const evento = eventos.find(e => e.id === id);
 
+  const isExterno = evento ? (evento.tipo === 'externo' || evento.tipo === 'mobilidade') : false;
+  const isMobilidade = evento ? (evento.tipo === 'mobilidade') : false;
+  const isLinkExterno = evento ? (evento.tipo === 'link_externo') : false;
+
   const [dynamicCountries, setDynamicCountries] = useState<{ name: string, code: string, commonName: string }[]>([]);
   const [dynamicStates, setDynamicStates] = useState<{ nome: string, sigla: string }[]>([]);
   const [dynamicCities, setDynamicCities] = useState<string[]>([]);
@@ -82,6 +86,10 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [registeredInscrito, setRegisteredInscrito] = useState<Inscrito | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState(3);
+  const [redirectUrl, setRedirectUrl] = useState('');
+  const [startCountdown, setStartCountdown] = useState(false);
 
   // Fetch Countries on Mount
   useEffect(() => {
@@ -202,8 +210,7 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
 
   const showCourseField =
     (showGradInterest && formData.interesseGraduacao === 'Sim') ||
-    (showHigherInterest && formData.interesseTipo === 'Segunda Graduação') ||
-    (showHigherInterest && formData.interesseTipo === 'Pós-graduação');
+    (showHigherInterest && formData.interesseTipo === 'Segunda Graduação');
 
   useEffect(() => {
     setFormData(prev => ({
@@ -213,6 +220,171 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
       cursoInteresse: ''
     }));
   }, [formData.escolaridade]);
+
+  const handleDownload = async () => {
+    if (registeredInscrito) {
+      await generateReceipt(evento, registeredInscrito, () => {
+        // Show success modal
+        setAlertConfig({
+          isOpen: true,
+          title: 'Comprovante Baixado!',
+          message: 'Seu comprovante foi baixado com sucesso!\n\n📱 No celular: Verifique na Galeria de Fotos ou pasta Downloads\n💻 No computador: Verifique na pasta Downloads',
+          type: 'success'
+        });
+        setIsDownloaded(true);
+        if (evento.linkExterno) {
+          setStartCountdown(true);
+        }
+      });
+    }
+  };
+
+  // Countdown para redirecionamento
+  useEffect(() => {
+    if (!isRedirecting || !redirectUrl || !startCountdown) return;
+    setRedirectCountdown(3);
+    const interval = setInterval(() => {
+      setRedirectCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          window.location.href = redirectUrl;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRedirecting, redirectUrl, startCountdown]);
+
+  // Tela de transição com link externo
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gradient-to-br from-green-50 to-blue-50">
+        <div className="max-w-xl w-full bg-white rounded-[2.5rem] shadow-2xl shadow-green-100 border border-gray-100 overflow-hidden text-center">
+          {/* Barra de progresso animada */}
+          <div className="h-2 bg-gray-100">
+            <div
+              className="h-2 bg-gradient-to-r from-green-400 to-primary transition-all duration-1000"
+              style={{ width: startCountdown ? `${((3 - redirectCountdown) / 3) * 100}%` : '0%' }}
+            />
+          </div>
+
+          <div className="p-8 md:p-12">
+            {/* Ícone de sucesso */}
+            <div className="size-24 bg-green-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
+              <span className="material-symbols-outlined text-green-500 text-5xl">check_circle</span>
+            </div>
+
+            {/* Mensagem principal */}
+            <h2 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">Inscrição Confirmada!</h2>
+            <p className="text-primary font-black text-base uppercase tracking-wide mb-6">{evento.nome}</p>
+
+            {/* Aviso de acesso liberado */}
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-8 text-left">
+              <div className="flex items-start gap-3">
+                <div className="size-10 bg-primary rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="material-symbols-outlined text-white text-xl">lock_open</span>
+                </div>
+                <div>
+                  <p className="font-black text-gray-900 text-sm mb-1">Acesso Liberado!</p>
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    Sua inscrição neste evento foi concluída com sucesso. O acesso à plataforma está liberado — clique no botão abaixo para fazer seu cadastro.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+
+            {/* Dados do Participante */}
+            <div className="bg-gray-50 p-6 rounded-3xl text-left border border-gray-100 mb-6 space-y-4">
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('participant')}</p>
+                <p className="text-lg font-bold text-gray-800">
+                  {isLinkExterno ? `MATRÍCULA: ${formData.matricula}` : formData.nomeCompleto.toUpperCase()}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    {isLinkExterno ? 'Matrícula' : 'CPF'}
+                  </p>
+                  <p className="text-sm font-bold text-gray-700">
+                    {isLinkExterno ? formData.matricula : formData.cpf}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Evento</p>
+                  <p className="text-sm font-bold text-gray-700">{evento.nome}</p>
+                </div>
+              </div>
+
+              {!isLinkExterno && (formData.cidade || formData.estado || formData.pais) && (
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{t('origin')}</p>
+                  <p className="text-sm font-bold text-gray-700">
+                    {formData.cidade}{formData.estado ? `, ${formData.estado}` : ''} - {formData.pais}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Aviso sobre o download */}
+            {!isDownloaded && (
+              <div className="mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3 animate-pulse">
+                <span className="material-symbols-outlined text-amber-600">warning</span>
+                <p className="text-xs text-amber-800 font-bold text-left">
+                  {t('attention')}: Baixe seu comprovante com o QR Code para liberar o redirecionamento automático.
+                </p>
+              </div>
+            )}
+            {isDownloaded && (
+              <div className="mb-6 p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center gap-3">
+                <span className="material-symbols-outlined text-green-600">check_circle</span>
+                <p className="text-xs text-green-800 font-bold text-left">
+                  Comprovante baixado!
+                </p>
+              </div>
+            )}
+
+            {/* Botão de download do comprovante */}
+            <button
+              onClick={handleDownload}
+              className={`w-full py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-2 mb-6 ${isDownloaded
+                ? 'bg-gray-50 text-gray-400 border-2 border-gray-100'
+                : 'bg-white border-2 border-primary text-primary hover:bg-primary-light shadow-lg'
+                }`}
+            >
+              <span className="material-symbols-outlined">{isDownloaded ? 'check' : 'download'}</span>
+              {isDownloaded ? 'Comprovante Baixado' : 'Baixar Comprovante'}
+            </button>
+
+            {/* Contador */}
+            {startCountdown ? (
+              <p className="text-gray-500 text-sm font-medium mb-5">
+                Redirecionando automaticamente em{' '}
+                <span className="font-black text-primary text-lg">{redirectCountdown}</span>{' '}
+                segundo{redirectCountdown !== 1 ? 's' : ''}...
+              </p>
+            ) : (
+              <p className="text-gray-400 text-sm font-medium mb-5 flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-amber-500 text-base animate-bounce">warning</span>
+                Aguardando download do comprovante para redirecionar (3s)
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Alert Dialog */}
+        <AlertDialog
+          isOpen={alertConfig.isOpen}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+        />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -237,10 +409,14 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
       </div>
     );
   }
-
-  const isExterno = evento.tipo === 'externo' || evento.tipo === 'mobilidade';
-  const isMobilidade = evento.tipo === 'mobilidade';
-  const isLinkExterno = evento.tipo === 'link_externo';
+  const isInterestValid =
+    showGradInterest
+      ? (formData.interesseGraduacao === 'Não' || (formData.interesseGraduacao === 'Sim' && formData.cursoInteresse !== ''))
+      : showHigherInterest
+        ? (formData.interesseTipo === 'Não tenho interesse no momento' ||
+           formData.interesseTipo === 'Pós-graduação' ||
+           (formData.interesseTipo === 'Segunda Graduação' && formData.cursoInteresse !== ''))
+        : true;
 
   const isFormValid = isLinkExterno
     ? formData.matricula.trim().length === 8
@@ -259,7 +435,7 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
         formData.escolaridade !== '' &&
         (!showGradInterest || formData.interesseGraduacao !== '') &&
         (!showHigherInterest || formData.interesseTipo !== '') &&
-        (formData.interesseGraduacao === 'Não' || formData.cursoInteresse !== ''));
+        isInterestValid);
 
 
 
@@ -305,11 +481,6 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
     setIsSubmitting(true);
     onRegister(evento.id, payload)
       .then(async (result) => {
-        if (isLinkExterno && evento.linkExterno) {
-          window.location.href = evento.linkExterno;
-          return;
-        }
-
         setRegisteredInscrito(result);
         if (result.qrToken) {
           // Gerar QR Code em Base64
@@ -326,6 +497,15 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
           });
           setQrCodeDataUrl(qrDataUrl);
         }
+
+        // Mostra tela de transição se houver link externo
+        if (evento.linkExterno) {
+          setRedirectUrl(evento.linkExterno);
+          setIsRedirecting(true);
+          setIsSubmitting(false);
+          return;
+        }
+
         setIsSuccess(true);
         setIsSubmitting(false);
       })
@@ -339,21 +519,6 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
           type: 'error'
         });
       });
-  };
-
-  const handleDownload = async () => {
-    if (registeredInscrito) {
-      await generateReceipt(evento, registeredInscrito, () => {
-        // Show success modal
-        setAlertConfig({
-          isOpen: true,
-          title: 'Comprovante Baixado!',
-          message: 'Seu comprovante foi baixado com sucesso!\n\n📱 No celular: Verifique na Galeria de Fotos ou pasta Downloads\n💻 No computador: Verifique na pasta Downloads',
-          type: 'success'
-        });
-        setIsDownloaded(true);
-      });
-    }
   };
 
   if (isSuccess) {

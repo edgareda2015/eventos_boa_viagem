@@ -12,6 +12,7 @@ import { generateReceipt } from '../../utils/receipt';
 import AlertDialog from '../../components/ui/AlertDialog';
 import { PhoneInputWithCountry } from '../../components/ui/PhoneInputWithCountry';
 import { parseLocalDate } from '../../utils/date';
+import { useLanguage } from '../../hooks/useLanguage';
 
 interface PublicEventRegistrationProps {
   eventos: Evento[];

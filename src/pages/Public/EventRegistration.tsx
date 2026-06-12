@@ -460,6 +460,10 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
         payload.cpf = formData.cpf;
         payload.email = formData.email;
         payload.escolaridade = formData.escolaridade;
+      } else {
+        payload.cpf = 'N/A';
+        payload.email = 'N/A';
+        payload.escolaridade = 'N/A';
       }
 
       if (isMobilidade) {

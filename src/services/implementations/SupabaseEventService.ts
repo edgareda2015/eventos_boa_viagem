@@ -265,10 +265,10 @@ export class SupabaseEventService implements EventService {
             .insert([{
                 event_id: eventoId,
                 nome: inscritoData.nomeCompleto,
-                cpf: inscritoData.cpf,
+                cpf: inscritoData.cpf || 'N/A',
                 telefone: inscritoData.telefone,
-                email: inscritoData.email,
-                escolaridade: inscritoData.escolaridade,
+                email: inscritoData.email || 'N/A',
+                escolaridade: inscritoData.escolaridade || 'N/A',
                 interesse: inscritoData.interesseTipo === 'Pós-graduação' ? 'pos' :
                     inscritoData.interesseTipo === 'Segunda Graduação' ? 'segunda_graduacao' : 'graduacao',
                 curso: inscritoData.cursoInteresse,

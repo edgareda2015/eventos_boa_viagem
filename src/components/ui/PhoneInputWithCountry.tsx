@@ -19,6 +19,20 @@ interface PhoneInputWithCountryProps {
     required?: boolean;
 }
 
+const FALLBACK_PHONE_COUNTRIES: CountryData[] = [
+    { name: "Brasil", commonName: "Brazil", code: "BR", dialCode: "+55", flag: "https://flagcdn.com/w320/br.png" },
+    { name: "Portugal", commonName: "Portugal", code: "PT", dialCode: "+351", flag: "https://flagcdn.com/w320/pt.png" },
+    { name: "Estados Unidos", commonName: "United States", code: "US", dialCode: "+1", flag: "https://flagcdn.com/w320/us.png" },
+    { name: "Espanha", commonName: "Spain", code: "ES", dialCode: "+34", flag: "https://flagcdn.com/w320/es.png" },
+    { name: "Itália", commonName: "Italy", code: "IT", dialCode: "+39", flag: "https://flagcdn.com/w320/it.png" },
+    { name: "Alemanha", commonName: "Germany", code: "DE", dialCode: "+49", flag: "https://flagcdn.com/w320/de.png" },
+    { name: "França", commonName: "France", code: "FR", dialCode: "+33", flag: "https://flagcdn.com/w320/fr.png" },
+    { name: "Reino Unido", commonName: "United Kingdom", code: "GB", dialCode: "+44", flag: "https://flagcdn.com/w320/gb.png" },
+    { name: "Argentina", commonName: "Argentina", code: "AR", dialCode: "+54", flag: "https://flagcdn.com/w320/ar.png" },
+    { name: "Chile", commonName: "Chile", code: "CL", dialCode: "+56", flag: "https://flagcdn.com/w320/cl.png" },
+    { name: "Uruguai", commonName: "Uruguay", code: "UY", dialCode: "+598", flag: "https://flagcdn.com/w320/uy.png" }
+];
+
 export const PhoneInputWithCountry: React.FC<PhoneInputWithCountryProps> = ({
     value,
     onChange,
@@ -83,7 +97,14 @@ export const PhoneInputWithCountry: React.FC<PhoneInputWithCountryProps> = ({
                     }
                 }
             } catch (err) {
-                console.error('Error fetching countries:', err);
+                console.error('Error fetching countries, using fallback list:', err);
+                setCountries(FALLBACK_PHONE_COUNTRIES);
+                if (!selectedCountry) {
+                    const brazil = FALLBACK_PHONE_COUNTRIES.find(c => c.code === 'BR');
+                    if (brazil) {
+                        setSelectedCountry(brazil);
+                    }
+                }
             }
         };
 

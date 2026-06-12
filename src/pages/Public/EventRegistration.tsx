@@ -49,6 +49,20 @@ const COUNTRIES = [
   "Brasil", "Portugal", "Espanha", "Itália", "Alemanha", "França", "Estados Unidos", "Argentina", "Chile", "Uruguai", "Outro"
 ];
 
+const FALLBACK_COUNTRIES = [
+  { name: "Brasil", commonName: "Brazil", code: "BR" },
+  { name: "Portugal", commonName: "Portugal", code: "PT" },
+  { name: "Espanha", commonName: "Spain", code: "ES" },
+  { name: "Itália", commonName: "Italy", code: "IT" },
+  { name: "Alemanha", commonName: "Germany", code: "DE" },
+  { name: "França", commonName: "France", code: "FR" },
+  { name: "Estados Unidos", commonName: "United States", code: "US" },
+  { name: "Argentina", commonName: "Argentina", code: "AR" },
+  { name: "Chile", commonName: "Chile", code: "CL" },
+  { name: "Uruguai", commonName: "Uruguay", code: "UY" },
+  { name: "Outro", commonName: "Other", code: "OT" }
+];
+
 const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ eventos, isLoading, onRegister }) => {
   const { t, language, locale } = useLanguage();
   const { id } = useParams<{ id: string }>();
@@ -92,8 +106,11 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
   const [redirectUrl, setRedirectUrl] = useState('');
   const [startCountdown, setStartCountdown] = useState(false);
 
-  // Fetch Countries on Mount
+  // Fetch Countries on Mount (Only for mobility events)
   useEffect(() => {
+    if (!evento || evento.tipo !== 'mobilidade') {
+      return;
+    }
     const fetchCountries = async () => {
       setLoadingLocation(prev => ({ ...prev, countries: true }));
       try {
@@ -114,13 +131,14 @@ const PublicEventRegistration: React.FC<PublicEventRegistrationProps> = ({ event
           .sort((a: any, b: any) => a.name.localeCompare(b.name));
         setDynamicCountries(formatted);
       } catch (err) {
-        console.error('Error fetching countries:', err);
+        console.error('Error fetching countries, using fallback list:', err);
+        setDynamicCountries(FALLBACK_COUNTRIES);
       } finally {
         setLoadingLocation(prev => ({ ...prev, countries: false }));
       }
     };
     fetchCountries();
-  }, [language]); // Re-fetch or re-map when language changes
+  }, [language, evento]); // Re-fetch or re-map when language or event changes
 
   // Fetch States when Country is Brazil
   useEffect(() => {

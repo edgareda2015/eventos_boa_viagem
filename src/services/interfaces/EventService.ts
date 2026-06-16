@@ -9,6 +9,7 @@ export interface EventService {
     reopenEvent(id: string): Promise<void>;
     deleteEvent(id: string): Promise<void>;
     registerSubscriber(eventoId: string, inscrito: Omit<Inscrito, 'id' | 'dataInscricao'>): Promise<Inscrito>;
+    registerSubscribersBulk(eventoId: string, inscritos: { nomeCompleto: string; telefone: string; dataInscricao?: string }[]): Promise<void>;
     deleteRegistration(id: string): Promise<void>;
     validateCheckin(token: string): Promise<{ success: boolean; message: string; inscrito?: Inscrito }>;
     uploadImage(file: File): Promise<string>;

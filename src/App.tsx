@@ -60,7 +60,7 @@ const AppContent: React.FC = () => {
                     <Route index element={<AdminDashboard eventos={store.eventos} />} />
                     <Route path="arquivo" element={<AdminArchive eventos={store.eventos} onReopen={store.reabrirEvento} />} />
                     <Route path="novo" element={<AdminEventForm onSave={store.addEvento} onUpload={store.uploadImage} />} />
-                    <Route path="evento/:id" element={<AdminEventDetails eventos={store.eventos} onEnd={store.encerrarEvento} onReopen={store.reabrirEvento} onDelete={store.deleteEvento} onDeleteRegistration={store.deleteInscrito} onCheckin={store.validateCheckin} />} />
+                    <Route path="evento/:id" element={<AdminEventDetails eventos={store.eventos} onEnd={store.encerrarEvento} onReopen={store.reabrirEvento} onDelete={store.deleteEvento} onDeleteRegistration={store.deleteInscrito} onCheckin={store.validateCheckin} onRegisterBulk={store.registrarInscritosBulk} />} />
                     <Route path="evento/:id/editar" element={<AdminEventEditWrapper eventos={store.eventos} isLoading={store.isLoading} onSave={store.updateEvento} onUpload={store.uploadImage} />} />
                     <Route path="documentacao" element={<AdminDocumentation />} />
                   </Routes>

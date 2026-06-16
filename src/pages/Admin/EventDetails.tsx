@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { Evento, Inscrito } from '../../types';
 import { Table, Column } from '../../components/ui/Table';
 import { exportToXLSX } from '../../utils/export';
@@ -18,9 +19,10 @@ interface AdminEventDetailsProps {
   onDelete: (id: string) => void;
   onDeleteRegistration: (id: string) => Promise<void>;
   onCheckin: (token: string) => Promise<{ success: boolean; message: string }>;
+  onRegisterBulk: (eventoId: string, inscritos: { nomeCompleto: string; telefone: string; dataInscricao?: string }[]) => Promise<void>;
 }
 
-const AdminEventDetails: React.FC<AdminEventDetailsProps> = ({ eventos, onEnd, onReopen, onDelete, onDeleteRegistration, onCheckin }) => {
+const AdminEventDetails: React.FC<AdminEventDetailsProps> = ({ eventos, onEnd, onReopen, onDelete, onDeleteRegistration, onCheckin, onRegisterBulk }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const evento = eventos.find(e => e.id === id);
@@ -34,6 +36,115 @@ const AdminEventDetails: React.FC<AdminEventDetailsProps> = ({ eventos, onEnd, o
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 30;
+
+  // Import State & Ref
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const excelDateToJSDate = (serial: any) => {
+    if (!serial || isNaN(serial)) return new Date().toISOString();
+    const utc_days = Math.floor(serial - 25569);
+    const utc_value = utc_days * 86400;
+    const date_info = new Date(utc_value * 1000);
+    const fractional_day = serial - Math.floor(serial) + 0.0000001;
+    let total_seconds = Math.floor(86400 * fractional_day);
+    const seconds = total_seconds % 60;
+    total_seconds -= seconds;
+    const hours = Math.floor(total_seconds / (60 * 60));
+    const minutes = Math.floor(total_seconds / 60) % 60;
+    return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), hours, minutes, seconds).toISOString();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const bstr = evt.target?.result;
+          const workbook = XLSX.read(bstr, { type: 'binary' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const rawData = XLSX.utils.sheet_to_json<any>(worksheet);
+
+          if (rawData.length === 0) {
+            setAlertConfig({
+              isOpen: true,
+              title: 'Planilha Vazia',
+              message: 'Nenhum registro encontrado na planilha.',
+              type: 'error'
+            });
+            setIsImporting(false);
+            return;
+          }
+
+          const firstRow = rawData[0];
+          const hasNome = 'NOME' in firstRow;
+
+          if (!hasNome) {
+            setAlertConfig({
+              isOpen: true,
+              title: 'Colunas Inválidas',
+              message: 'A planilha deve conter uma coluna com o cabeçalho "NOME". Opcionalmente, pode conter "CONTATO" (ou "TELEFONE") e "DATA".',
+              type: 'error'
+            });
+            setIsImporting(false);
+            return;
+          }
+
+          const mapped = rawData.map(row => {
+            const nomeCompleto = row['NOME']?.toString().trim() || 'N/A';
+            const telefone = (row['CONTATO'] || row['TELEFONE'] || 'N/A').toString().trim();
+            const rawDate = row['DATA '] || row['DATA'] || row['Data'];
+            const dataInscricao = excelDateToJSDate(rawDate);
+
+            return {
+              nomeCompleto,
+              telefone,
+              dataInscricao
+            };
+          });
+
+          await onRegisterBulk(evento.id, mapped);
+
+          setAlertConfig({
+            isOpen: true,
+            title: 'Importação Concluída',
+            message: `Sucesso ao importar ${mapped.length} participantes para o evento!`,
+            type: 'success'
+          });
+        } catch (err: any) {
+          console.error(err);
+          setAlertConfig({
+            isOpen: true,
+            title: 'Erro ao Importar',
+            message: `Ocorreu um erro ao processar a planilha: ${err.message || err}`,
+            type: 'error'
+          });
+        } finally {
+          setIsImporting(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      };
+      reader.readAsBinaryString(file);
+    } catch (err: any) {
+      console.error(err);
+      setAlertConfig({
+        isOpen: true,
+        title: 'Erro ao Importar',
+        message: `Ocorreu um erro ao abrir o arquivo: ${err.message || err}`,
+        type: 'error'
+      });
+      setIsImporting(false);
+    }
+  };
 
   // Modal States
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -522,15 +633,34 @@ const AdminEventDetails: React.FC<AdminEventDetailsProps> = ({ eventos, onEnd, o
                     Mostrando {paginatedInscritos.length} de {filteredInscritos.length} registros
                   </p>
                 </div>
-                {evento.inscritos.length > 0 && (
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept=".xlsx, .xls"
+                    className="hidden"
+                  />
                   <button
-                    onClick={handleExport}
-                    className="bg-green-600 text-white px-5 py-2.5 rounded-xl text-xs font-black hover:bg-green-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-100 w-full sm:w-auto"
+                    onClick={handleImportClick}
+                    disabled={isImporting}
+                    className="bg-white border-2 border-primary text-primary px-5 py-2.5 rounded-xl text-xs font-black hover:bg-primary-light transition-all flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto disabled:opacity-50"
                   >
-                    <span className="material-symbols-outlined text-lg">download</span>
-                    Exportar Excel
+                    <span className="material-symbols-outlined text-lg">
+                      {isImporting ? 'sync' : 'upload'}
+                    </span>
+                    {isImporting ? 'Importando...' : 'Importar Excel'}
                   </button>
-                )}
+                  {evento.inscritos.length > 0 && (
+                    <button
+                      onClick={handleExport}
+                      className="bg-green-600 text-white px-5 py-2.5 rounded-xl text-xs font-black hover:bg-green-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-100 w-full sm:w-auto"
+                    >
+                      <span className="material-symbols-outlined text-lg">download</span>
+                      Exportar Excel
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col md:flex-row gap-4">

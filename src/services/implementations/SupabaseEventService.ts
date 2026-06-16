@@ -302,6 +302,39 @@ export class SupabaseEventService implements EventService {
         };
     }
 
+    async registerSubscribersBulk(eventoId: string, inscritos: { nomeCompleto: string; telefone: string; dataInscricao?: string }[]): Promise<void> {
+        if (!supabase) throw new Error('Supabase não configurado.');
+
+        const records = inscritos.map(inscrito => {
+            const qrToken = crypto.randomUUID();
+            return {
+                event_id: eventoId,
+                nome: inscrito.nomeCompleto,
+                cpf: `EXT-${qrToken}`,
+                telefone: inscrito.telefone || 'N/A',
+                email: 'N/A',
+                escolaridade: 'N/A',
+                interesse: 'graduacao',
+                qr_token: qrToken,
+                checked_in: false,
+                checkin_date: null,
+                cidade: null,
+                estado: null,
+                pais: null,
+                data_inscricao: inscrito.dataInscricao || new Date().toISOString()
+            };
+        });
+
+        const batchSize = 100;
+        for (let i = 0; i < records.length; i += batchSize) {
+            const batch = records.slice(i, i + batchSize);
+            const { error } = await supabase
+                .from('registrations')
+                .insert(batch);
+            if (error) throw error;
+        }
+    }
+
     async deleteRegistration(id: string): Promise<void> {
         if (!supabase) throw new Error('Supabase não configurado.');
         const { error } = await supabase

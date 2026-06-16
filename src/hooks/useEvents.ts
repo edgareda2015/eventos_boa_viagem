@@ -77,6 +77,11 @@ export const useStore = () => {
     return result;
   };
 
+  const registrarInscritosBulk = async (eventoId: string, inscritos: { nomeCompleto: string; telefone: string; dataInscricao?: string }[]) => {
+    await eventService.registerSubscribersBulk(eventoId, inscritos);
+    await loadEvents();
+  };
+
   const deleteInscrito = async (id: string) => {
     await eventService.deleteRegistration(id);
     await loadEvents();
@@ -108,6 +113,7 @@ export const useStore = () => {
     reabrirEvento,
     deleteEvento,
     registrarInscrito,
+    registrarInscritosBulk,
     deleteInscrito,
     validateCheckin,
     uploadImage

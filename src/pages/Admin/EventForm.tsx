@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Evento } from '../../types';
+import { Evento, AdminUser } from '../../types';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { Button } from '../../components/ui/Button';
@@ -11,14 +11,17 @@ interface AdminEventFormProps {
   onSave: (evento: any) => void;
   onUpload?: (file: File) => Promise<string>;
   initialData?: Evento;
+  adminProfile?: AdminUser | null;
 }
 
-const AdminEventForm: React.FC<AdminEventFormProps> = ({ onSave, onUpload, initialData }) => {
+const AdminEventForm: React.FC<AdminEventFormProps> = ({ onSave, onUpload, initialData, adminProfile }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     nome: '',
     data: '',
+    dataFinal: '',
     horario: '',
+    horarioFinal: '',
     descricao: '',
     local: 'Auditório UNINASSAU Boa Viagem',
     imagem: '',
@@ -45,7 +48,9 @@ const AdminEventForm: React.FC<AdminEventFormProps> = ({ onSave, onUpload, initi
       setFormData({
         nome: initialData.nome,
         data: initialData.data,
+        dataFinal: initialData.dataFinal || '',
         horario: initialData.horario,
+        horarioFinal: initialData.horarioFinal || '',
         descricao: initialData.descricao,
         local: initialData.local,
         imagem: initialData.imagem || '',
@@ -64,7 +69,11 @@ const AdminEventForm: React.FC<AdminEventFormProps> = ({ onSave, onUpload, initi
         imageUrl = await onUpload(selectedFile);
       }
 
-      const finalData = { ...formData, imagem: imageUrl };
+      const finalData = { 
+        ...formData, 
+        imagem: imageUrl,
+        proprietarioId: initialData ? initialData.proprietarioId : (adminProfile?.id || null)
+      };
 
       if (initialData) {
         await onSave({ ...initialData, ...finalData });
@@ -113,18 +122,33 @@ const AdminEventForm: React.FC<AdminEventFormProps> = ({ onSave, onUpload, initi
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
-              label="Data"
+              label="Data Inicial"
               type="date"
               value={formData.data}
               onChange={e => setFormData({ ...formData, data: e.target.value })}
               required
             />
             <Input
-              label="Horário"
-              placeholder="Ex: 19:00 - 22:00"
+              label="Data Final (Opcional)"
+              type="date"
+              value={formData.dataFinal}
+              onChange={e => setFormData({ ...formData, dataFinal: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Input
+              label="Hora Inicial"
+              placeholder="Ex: 10:00"
               value={formData.horario}
               onChange={e => setFormData({ ...formData, horario: e.target.value })}
               required
+            />
+            <Input
+              label="Hora Final (Opcional)"
+              placeholder="Ex: 14:00"
+              value={formData.horarioFinal}
+              onChange={e => setFormData({ ...formData, horarioFinal: e.target.value })}
             />
           </div>
 

@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Evento, Inscrito } from '../../types';
+import { Evento, Inscrito, AdminUser } from '../../types';
 import { Table, Column } from '../../components/ui/Table';
 import { exportToXLSX } from '../../utils/export';
 import { generateReceipt, generateEventRedirectQRCode } from '../../utils/receipt';
@@ -14,6 +14,7 @@ import { parseLocalDate } from '../../utils/date';
 
 interface AdminEventDetailsProps {
   eventos: Evento[];
+  adminProfile: AdminUser | null;
   onEnd: (id: string) => void;
   onReopen: (id: string) => void;
   onDelete: (id: string) => void;
@@ -22,10 +23,39 @@ interface AdminEventDetailsProps {
   onRegisterBulk: (eventoId: string, inscritos: { nomeCompleto: string; telefone: string; dataInscricao?: string }[]) => Promise<void>;
 }
 
-const AdminEventDetails: React.FC<AdminEventDetailsProps> = ({ eventos, onEnd, onReopen, onDelete, onDeleteRegistration, onCheckin, onRegisterBulk }) => {
+const AdminEventDetails: React.FC<AdminEventDetailsProps> = ({ eventos, adminProfile, onEnd, onReopen, onDelete, onDeleteRegistration, onCheckin, onRegisterBulk }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const evento = eventos.find(e => e.id === id);
+
+  // Check role-based permission
+  const hasPermission = useMemo(() => {
+    if (!adminProfile) return false;
+    if (adminProfile.perfil === 'ADMIN') return true;
+    if (adminProfile.perfil === 'COMERCIAL' && evento && evento.proprietarioId === adminProfile.id) return true;
+    return false;
+  }, [adminProfile, evento]);
+
+  if (evento && !hasPermission) {
+    return (
+      <div className="container mx-auto px-4 py-16 animate-in flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="size-24 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-red-100 border border-red-100">
+          <span className="material-symbols-outlined text-5xl font-black">gpp_bad</span>
+        </div>
+        <h2 className="text-3xl font-black text-gray-900 tracking-tight mb-2">Permissão Insuficiente</h2>
+        <p className="text-gray-500 max-w-md mb-8">
+          Você não tem permissão para visualizar os inscritos ou detalhes deste evento, pois ele pertence a outro colaborador.
+        </p>
+        <Link
+          to="/admin"
+          className="bg-primary text-white px-8 py-4 rounded-xl font-black text-sm uppercase tracking-wider flex items-center gap-2 hover:bg-primary-dark transition-all"
+        >
+          <span className="material-symbols-outlined text-sm font-bold">arrow_back</span>
+          Voltar ao Painel
+        </Link>
+      </div>
+    );
+  }
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'present' | 'pending'>('all');

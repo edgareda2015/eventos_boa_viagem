@@ -11,6 +11,9 @@ export interface Evento {
   imagem?: string;
   tipo?: 'interno' | 'externo' | 'mobilidade' | 'link_externo';
   linkExterno?: string;
+  proprietarioId?: string;
+  dataFinal?: string;
+  horarioFinal?: string;
 }
 
 export interface Inscrito {
@@ -39,4 +42,29 @@ export enum Escolaridade {
   SUPERIOR_ANDAMENTO = 'Ensino superior em andamento',
   SUPERIOR_COMPLETO = 'Ensino superior completo',
   POS_GRADUACAO = 'Pós-graduação'
+}
+
+export interface AdminUser {
+  id: string;
+  nome: string;
+  email: string;
+  perfil: 'ADMIN' | 'COMERCIAL';
+  status: 'ativo' | 'inativo';
+  createdAt: string;
+}
+
+export interface DrawHistory {
+  id: string;
+  eventId: string;
+  eventName?: string;
+  registrationId: string;
+  winnerName?: string;
+  winnerEmail?: string;
+  winnerPhone?: string;
+  winnerRegistrationNumber?: string;
+  responsavelId: string;
+  responsavelName?: string;
+  totalInscritos: number;
+  novosInscritos: number;
+  dataSorteio: string;
 }

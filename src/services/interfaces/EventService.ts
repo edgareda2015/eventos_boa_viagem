@@ -1,4 +1,4 @@
-import { Evento, Inscrito } from '../../types';
+import { Evento, Inscrito, AdminUser, DrawHistory } from '../../types';
 
 export interface EventService {
     getEvents(): Promise<Evento[]>;
@@ -15,4 +15,13 @@ export interface EventService {
     uploadImage(file: File): Promise<string>;
     isAdmin(): boolean;
     setAdmin(isAdmin: boolean): void;
+    
+    // Novas operações V2
+    syncUserProfile(clerkId: string, email: string, nome: string): Promise<AdminUser | null>;
+    getAdminUsers(): Promise<AdminUser[]>;
+    createAdminUser(user: Omit<AdminUser, 'createdAt'>): Promise<AdminUser>;
+    updateAdminUser(user: AdminUser): Promise<AdminUser>;
+    deleteAdminUser(id: string): Promise<void>;
+    getDrawHistory(eventId?: string): Promise<DrawHistory[]>;
+    saveDraw(draw: Omit<DrawHistory, 'id' | 'dataSorteio'>): Promise<DrawHistory>;
 }

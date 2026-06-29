@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-react';
-import { Evento, Inscrito } from '../types';
+import { Evento, Inscrito, AdminUser, DrawHistory } from '../types';
 import { eventService } from '../services/factory';
 
 export const useStore = () => {
@@ -9,6 +9,7 @@ export const useStore = () => {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [authReady, setAuthReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [adminProfile, setAdminProfile] = useState<AdminUser | null>(null);
 
   const loadEvents = async () => {
     try {
@@ -24,12 +25,35 @@ export const useStore = () => {
     }
   };
 
+  const syncProfile = async () => {
+    if (isSignedIn && user) {
+      try {
+        const email = user.primaryEmailAddress?.emailAddress || '';
+        const name = user.fullName || user.username || 'Colaborador';
+        const profile = await eventService.syncUserProfile(user.id, email, name);
+        if (profile) {
+          if (profile.status === 'inativo') {
+            await signOut();
+            setAdminProfile(null);
+          } else {
+            setAdminProfile(profile);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao sincronizar perfil administrativo:', err);
+      }
+    } else {
+      setAdminProfile(null);
+    }
+  };
+
   // ✅ Sync authReady with Clerk's isLoaded
   useEffect(() => {
     if (isLoaded) {
       setAuthReady(true);
+      syncProfile();
     }
-  }, [isLoaded]);
+  }, [isLoaded, isSignedIn, user]);
 
   // ✅ Load events when auth is ready (even if not signed in, for public view)
   useEffect(() => {
@@ -44,6 +68,7 @@ export const useStore = () => {
 
   const logout = async () => {
     await signOut();
+    setAdminProfile(null);
   };
 
   const addEvento = async (evento: Omit<Evento, 'id' | 'inscritos' | 'encerrado'>) => {
@@ -99,10 +124,40 @@ export const useStore = () => {
     return await eventService.uploadImage(file);
   };
 
+  // Operações de usuários
+  const getAdminUsers = async () => {
+    return await eventService.getAdminUsers();
+  };
+
+  const createAdminUser = async (u: Omit<AdminUser, 'createdAt'>) => {
+    const res = await eventService.createAdminUser(u);
+    return res;
+  };
+
+  const updateAdminUser = async (u: AdminUser) => {
+    const res = await eventService.updateAdminUser(u);
+    return res;
+  };
+
+  const deleteAdminUser = async (id: string) => {
+    await eventService.deleteAdminUser(id);
+  };
+
+  // Operações de sorteio
+  const getDrawHistory = async (eventId?: string) => {
+    return await eventService.getDrawHistory(eventId);
+  };
+
+  const saveDraw = async (draw: Omit<DrawHistory, 'id' | 'dataSorteio'>) => {
+    const res = await eventService.saveDraw(draw);
+    return res;
+  };
+
   return {
     eventos,
     isLoading,
-    isAdmin: !!isSignedIn,
+    isAdmin: !!isSignedIn && adminProfile?.status === 'ativo',
+    adminProfile,
     authReady,
     user,
     login,
@@ -116,6 +171,12 @@ export const useStore = () => {
     registrarInscritosBulk,
     deleteInscrito,
     validateCheckin,
-    uploadImage
+    uploadImage,
+    getAdminUsers,
+    createAdminUser,
+    updateAdminUser,
+    deleteAdminUser,
+    getDrawHistory,
+    saveDraw
   };
 };

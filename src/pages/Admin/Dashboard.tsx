@@ -1,20 +1,29 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Evento } from '../../types';
+import { Evento, AdminUser } from '../../types';
 import { parseLocalDate } from '../../utils/date';
 
 interface AdminDashboardProps {
   eventos: Evento[];
+  adminProfile: AdminUser | null;
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ eventos }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ eventos, adminProfile }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
 
+  // Filtrar eventos por papel: COMERCIAL vê apenas os seus
+  const eventosFiltradosPorPerfil = useMemo(() => {
+    if (adminProfile?.perfil === 'COMERCIAL') {
+      return eventos.filter(e => e.proprietarioId === adminProfile.id);
+    }
+    return eventos; // ADMIN vê tudo
+  }, [eventos, adminProfile]);
+
   // Apply date filter
-  const dateFilteredEventos = eventos.filter(e => {
+  const dateFilteredEventos = eventosFiltradosPorPerfil.filter(e => {
     if (!dateStart && !dateEnd) return true;
     const eventDate = parseLocalDate(e.data);
     const start = dateStart ? parseLocalDate(dateStart) : null;
@@ -30,7 +39,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ eventos }) => {
     return true;
   });
 
-  // Apply search filter
+  // Apply search filter (only active events in main list)
   const filteredEventos = dateFilteredEventos.filter(e =>
     !e.encerrado && e.nome.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -41,25 +50,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ eventos }) => {
     ? (totalParticipants / dateFilteredEventos.length).toFixed(1)
     : '0';
 
+  // Novos indicadores V2
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const eventosAtivos = eventosFiltradosPorPerfil.filter(e => !e.encerrado).length;
+  const eventosArquivados = eventosFiltradosPorPerfil.filter(e => e.encerrado).length;
+  const eventosFuturos = eventosFiltradosPorPerfil.filter(e => {
+    const d = parseLocalDate(e.data);
+    return !e.encerrado && d >= today;
+  }).length;
+
+  // Inscritos no mês atual
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  const inscritosNoMes = eventosFiltradosPorPerfil.reduce((acc, e) => {
+    return acc + e.inscritos.filter(i => {
+      const d = new Date(i.dataInscricao);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }).length;
+  }, 0);
+
   // Interest breakdown
   const interests = {
     graduacao: 0,
     pos: 0,
     segunda: 0,
-    semInteresse: 0  // NEW: count people with no interest
+    semInteresse: 0
   };
 
   dateFilteredEventos.forEach(evento => {
     evento.inscritos.forEach(inscrito => {
-      // Only count if they actually selected a course
-      // The interesseTipo field contains: 'graduacao', 'pos', 'segunda_graduacao'
       if (inscrito.interesseTipo === 'graduacao' && inscrito.cursoInteresse) {
         interests.graduacao++;
       } else if (inscrito.interesseTipo === 'pos') {
-        // Pós always requires course selection
         interests.pos++;
       } else if (inscrito.interesseTipo === 'segunda_graduacao') {
-        // Segunda graduação always requires course selection
         interests.segunda++;
       }
     });
@@ -80,10 +105,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ eventos }) => {
     <div className="container mx-auto px-4 py-8 animate-in">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
         <div className="px-4 md:px-0">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
+            {adminProfile?.perfil === 'COMERCIAL' ? '👤 Colaborador Comercial' : '🛡️ Administrador'}
+            {adminProfile ? ` — ${adminProfile.nome}` : ''}
+          </p>
           <h2 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">Painel de Controle</h2>
           <p className="text-gray-500 mt-1 text-sm md:text-base">Gestão centralizada dos eventos no auditório institucional.</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 px-4 md:px-0">
+        <div className="flex flex-col sm:flex-row gap-3 px-4 md:px-0 flex-wrap">
           <Link
             to="/admin/documentacao"
             className="bg-white border-2 border-gray-100 text-gray-500 px-6 py-3.5 md:py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-gray-50 transition-all text-sm md:text-base"
@@ -98,6 +127,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ eventos }) => {
             <span className="material-symbols-outlined font-bold">archive</span>
             Ver Arquivo
           </Link>
+          <Link
+            to="/admin/sorteios"
+            className="bg-amber-50 border-2 border-amber-200 text-amber-700 px-6 py-3.5 md:py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-amber-100 transition-all text-sm md:text-base"
+          >
+            <span className="material-symbols-outlined font-bold">celebration</span>
+            Sorteios
+          </Link>
+          {adminProfile?.perfil === 'ADMIN' && (
+            <Link
+              to="/admin/usuarios"
+              className="bg-indigo-50 border-2 border-indigo-200 text-indigo-700 px-6 py-3.5 md:py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all text-sm md:text-base"
+            >
+              <span className="material-symbols-outlined font-bold">manage_accounts</span>
+              Usuários
+            </Link>
+          )}
           <Link
             to="/checkin"
             className="bg-amber-50 border-2 border-amber-100 text-amber-700 px-6 py-3.5 md:py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-amber-100 transition-all text-sm md:text-base"
@@ -159,27 +204,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ eventos }) => {
         )}
       </div>
 
-      {/* Comprehensive Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-12 px-4 md:px-0">
+      {/* Indicadores V2 — Linha 1: Eventos */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4 px-4 md:px-0">
         <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden group">
           <div className="absolute right-0 top-0 translate-x-1/3 -translate-y-1/3 size-20 md:size-24 bg-primary-light rounded-full group-hover:scale-110 transition-transform"></div>
-          <p className="text-[10px] md:text-xs font-black text-primary uppercase tracking-widest mb-1 relative z-10">Eventos no Período</p>
-          <p className="text-4xl md:text-5xl font-black text-primary relative z-10">{dateFilteredEventos.length}</p>
+          <p className="text-[10px] md:text-xs font-black text-primary uppercase tracking-widest mb-1 relative z-10">Eventos Ativos</p>
+          <p className="text-4xl md:text-5xl font-black text-primary relative z-10">{eventosAtivos}</p>
+        </div>
+        <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden group">
+          <div className="absolute right-0 top-0 translate-x-1/3 -translate-y-1/3 size-20 md:size-24 bg-blue-50 rounded-full group-hover:scale-110 transition-transform"></div>
+          <p className="text-[10px] md:text-xs font-black text-blue-500 uppercase tracking-widest mb-1 relative z-10">Eventos Futuros</p>
+          <p className="text-4xl md:text-5xl font-black text-blue-600 relative z-10">{eventosFuturos}</p>
         </div>
         <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden group">
           <div className="absolute right-0 top-0 translate-x-1/3 -translate-y-1/3 size-20 md:size-24 bg-gray-50 rounded-full group-hover:scale-110 transition-transform"></div>
-          <p className="text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 relative z-10">Total Participantes</p>
+          <p className="text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 relative z-10">Arquivados</p>
+          <p className="text-4xl md:text-5xl font-black text-gray-500 relative z-10">{eventosArquivados}</p>
+        </div>
+        <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden group">
+          <div className="absolute right-0 top-0 translate-x-1/3 -translate-y-1/3 size-20 md:size-24 bg-green-50 rounded-full group-hover:scale-110 transition-transform"></div>
+          <p className="text-[10px] md:text-xs font-black text-green-600 uppercase tracking-widest mb-1 relative z-10">Inscritos no Mês</p>
+          <p className="text-4xl md:text-5xl font-black text-green-700 relative z-10">{inscritosNoMes}</p>
+        </div>
+      </div>
+
+      {/* Indicadores V2 — Linha 2: Participantes e Média */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12 px-4 md:px-0">
+        <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden group">
+          <div className="absolute right-0 top-0 translate-x-1/3 -translate-y-1/3 size-20 md:size-24 bg-gray-50 rounded-full group-hover:scale-110 transition-transform"></div>
+          <p className="text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 relative z-10">Total de Participantes {dateStart || dateEnd ? '(Período)' : ''}</p>
           <p className="text-4xl md:text-5xl font-black text-gray-900 relative z-10">{totalParticipants}</p>
         </div>
         <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden group">
           <div className="absolute right-0 top-0 translate-x-1/3 -translate-y-1/3 size-20 md:size-24 bg-gray-50 rounded-full group-hover:scale-110 transition-transform"></div>
           <p className="text-[10px] md:text-xs font-black text-gray-400 uppercase tracking-widest mb-1 relative z-10">Média por Evento</p>
           <p className="text-4xl md:text-5xl font-black text-gray-900 relative z-10">{avgParticipants}</p>
-        </div>
-        <div className="bg-white p-5 md:p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden group">
-          <div className="absolute right-0 top-0 translate-x-1/3 -translate-y-1/3 size-20 md:size-24 bg-primary-light rounded-full group-hover:scale-110 transition-transform"></div>
-          <p className="text-[10px] md:text-xs font-black text-primary uppercase tracking-widest mb-1 relative z-10">Eventos Ativos</p>
-          <p className="text-4xl md:text-5xl font-black text-primary relative z-10">{eventos.filter(e => !e.encerrado).length}</p>
         </div>
       </div>
 

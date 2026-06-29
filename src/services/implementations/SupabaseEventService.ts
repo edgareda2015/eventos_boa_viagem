@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
-import { Evento, Inscrito } from '../../types';
+import { Evento, Inscrito, AdminUser, DrawHistory } from '../../types';
 import { EventService } from '../interfaces/EventService';
+
 
 export class SupabaseEventService implements EventService {
     async getEvents(): Promise<Evento[]> {
@@ -54,6 +55,9 @@ export class SupabaseEventService implements EventService {
                     imagem: event.imagem_url,
                     tipo: event.tipo || 'interno',
                     linkExterno: event.link_externo,
+                    proprietarioId: event.proprietario_id,
+                    dataFinal: event.data_final,
+                    horarioFinal: event.horario_final,
                     inscritos: allRegistrations.map((reg: any) => ({
                         id: reg.id,
                         nomeCompleto: reg.nome,
@@ -131,6 +135,9 @@ export class SupabaseEventService implements EventService {
                 imagem: event.imagem_url,
                 tipo: event.tipo || 'interno',
                 linkExterno: event.link_externo,
+                proprietarioId: event.proprietario_id,
+                dataFinal: event.data_final,
+                horarioFinal: event.horario_final,
                 inscritos: allRegistrations.map((reg: any) => ({
                     id: reg.id,
                     nomeCompleto: reg.nome,
@@ -169,7 +176,10 @@ export class SupabaseEventService implements EventService {
                 imagem_url: (eventoData as any).imagem,
                 status: 'ativo',
                 tipo: (eventoData as any).tipo || 'interno',
-                link_externo: (eventoData as any).linkExterno
+                link_externo: (eventoData as any).linkExterno,
+                proprietario_id: (eventoData as any).proprietarioId,
+                data_final: (eventoData as any).dataFinal,
+                horario_final: (eventoData as any).horarioFinal
             }])
             .select()
             .single();
@@ -186,6 +196,9 @@ export class SupabaseEventService implements EventService {
             imagem: data.imagem_url,
             tipo: data.tipo || 'interno',
             linkExterno: data.link_externo,
+            proprietarioId: data.proprietario_id,
+            dataFinal: data.data_final,
+            horarioFinal: data.horario_final,
             inscritos: []
         };
     }
@@ -203,7 +216,10 @@ export class SupabaseEventService implements EventService {
                 imagem_url: evento.imagem,
                 status: evento.encerrado ? 'encerrado' : 'ativo',
                 tipo: evento.tipo,
-                link_externo: evento.linkExterno
+                link_externo: evento.linkExterno,
+                proprietario_id: evento.proprietarioId,
+                data_final: evento.dataFinal,
+                horario_final: evento.horarioFinal
             })
             .eq('id', evento.id)
             .select()
@@ -221,6 +237,9 @@ export class SupabaseEventService implements EventService {
             imagem: data.imagem_url,
             tipo: data.tipo || 'interno',
             linkExterno: data.link_externo,
+            proprietarioId: data.proprietario_id,
+            dataFinal: data.data_final,
+            horarioFinal: data.horario_final,
             inscritos: evento.inscritos
         };
     }
@@ -437,5 +456,232 @@ export class SupabaseEventService implements EventService {
     }
 
     setAdmin(_isAdmin: boolean): void {
+    }
+
+    // Novas operações V2
+    async syncUserProfile(clerkId: string, email: string, nome: string): Promise<AdminUser | null> {
+        if (!supabase) return null;
+        try {
+            const { data: existingUser, error: fetchError } = await supabase
+                .from('admin_users')
+                .select('*')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (fetchError) throw fetchError;
+
+            if (existingUser) {
+                if (existingUser.id !== clerkId) {
+                    const { data: updatedUser, error: updateError } = await supabase
+                        .from('admin_users')
+                        .update({ id: clerkId, nome })
+                        .eq('email', email)
+                        .select()
+                        .single();
+                    if (updateError) throw updateError;
+                    return {
+                        id: updatedUser.id,
+                        nome: updatedUser.nome,
+                        email: updatedUser.email,
+                        perfil: updatedUser.perfil as any,
+                        status: updatedUser.status as any,
+                        createdAt: updatedUser.created_at
+                    };
+                }
+                return {
+                    id: existingUser.id,
+                    nome: existingUser.nome,
+                    email: existingUser.email,
+                    perfil: existingUser.perfil as any,
+                    status: existingUser.status as any,
+                    createdAt: existingUser.created_at
+                };
+            }
+
+            const { count, error: countError } = await supabase
+                .from('admin_users')
+                .select('*', { count: 'exact', head: true });
+
+            if (countError) throw countError;
+
+            const perfil = (count === 0) ? 'ADMIN' : 'COMERCIAL';
+            const status = 'ativo';
+            
+            const { data: newUser, error: insertError } = await supabase
+                .from('admin_users')
+                .insert([{
+                    id: clerkId,
+                    nome,
+                    email,
+                    perfil,
+                    status
+                }])
+                .select()
+                .single();
+
+            if (insertError) throw insertError;
+
+            return {
+                id: newUser.id,
+                nome: newUser.nome,
+                email: newUser.email,
+                perfil: newUser.perfil as any,
+                status: newUser.status as any,
+                createdAt: newUser.created_at
+            };
+        } catch (e) {
+            console.error('Erro ao sincronizar perfil do usuário:', e);
+            return null;
+        }
+    }
+
+    async getAdminUsers(): Promise<AdminUser[]> {
+        if (!supabase) return [];
+        try {
+            const { data, error } = await supabase
+                .from('admin_users')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            return (data || []).map(u => ({
+                id: u.id,
+                nome: u.nome,
+                email: u.email,
+                perfil: u.perfil as any,
+                status: u.status as any,
+                createdAt: u.created_at
+            }));
+        } catch (e) {
+            console.error('Erro ao listar usuários administrativos:', e);
+            return [];
+        }
+    }
+
+    async createAdminUser(user: Omit<AdminUser, 'createdAt'>): Promise<AdminUser> {
+        if (!supabase) throw new Error('Supabase não configurado.');
+        const { data, error } = await supabase
+            .from('admin_users')
+            .insert([{
+                id: user.id || crypto.randomUUID(),
+                nome: user.nome,
+                email: user.email,
+                perfil: user.perfil,
+                status: user.status
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+        return {
+            id: data.id,
+            nome: data.nome,
+            email: data.email,
+            perfil: data.perfil as any,
+            status: data.status as any,
+            createdAt: data.created_at
+        };
+    }
+
+    async updateAdminUser(user: AdminUser): Promise<AdminUser> {
+        if (!supabase) throw new Error('Supabase não configurado.');
+        const { data, error } = await supabase
+            .from('admin_users')
+            .update({
+                nome: user.nome,
+                perfil: user.perfil,
+                status: user.status
+            })
+            .eq('email', user.email)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return {
+            id: data.id,
+            nome: data.nome,
+            email: data.email,
+            perfil: data.perfil as any,
+            status: data.status as any,
+            createdAt: data.created_at
+        };
+    }
+
+    async deleteAdminUser(id: string): Promise<void> {
+        if (!supabase) throw new Error('Supabase não configurado.');
+        const { error } = await supabase
+            .from('admin_users')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+    }
+
+    async getDrawHistory(eventId?: string): Promise<DrawHistory[]> {
+        if (!supabase) return [];
+        try {
+            let query = supabase
+                .from('draw_history')
+                .select('*, events(nome_evento), registrations(nome, email, telefone, cpf), admin_users(nome)')
+                .order('data_sorteio', { ascending: false });
+
+            if (eventId) {
+                query = query.eq('event_id', eventId);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            return (data || []).map(d => ({
+                id: d.id,
+                eventId: d.event_id,
+                eventName: d.events?.nome_evento || 'Evento não localizado',
+                registrationId: d.registration_id,
+                winnerName: d.registrations?.nome || 'Inscrito não localizado',
+                winnerEmail: d.registrations?.email || 'N/A',
+                winnerPhone: d.registrations?.telefone || 'N/A',
+                winnerRegistrationNumber: d.registrations?.cpf || 'N/A',
+                responsavelId: d.responsavel_id,
+                responsavelName: d.admin_users?.nome || 'Responsável não localizado',
+                totalInscritos: d.total_inscritos,
+                novosInscritos: d.novos_inscritos,
+                dataSorteio: d.data_sorteio
+            }));
+        } catch (e) {
+            console.error('Erro ao buscar histórico de sorteios:', e);
+            return [];
+        }
+    }
+
+    async saveDraw(draw: Omit<DrawHistory, 'id' | 'dataSorteio'>): Promise<DrawHistory> {
+        if (!supabase) throw new Error('Supabase não configurado.');
+        const { data, error } = await supabase
+            .from('draw_history')
+            .insert([{
+                event_id: draw.eventId,
+                registration_id: draw.registrationId,
+                responsavel_id: draw.responsavelId,
+                total_inscritos: draw.totalInscritos,
+                novos_inscritos: draw.novosInscritos
+            }])
+            .select('*, events(nome_evento), registrations(nome, email, telefone, cpf), admin_users(nome)')
+            .single();
+
+        if (error) throw error;
+        return {
+            id: data.id,
+            eventId: data.event_id,
+            eventName: data.events?.nome_evento || 'Evento não localizado',
+            registrationId: data.registration_id,
+            winnerName: data.registrations?.nome || 'Inscrito não localizado',
+            winnerEmail: data.registrations?.email || 'N/A',
+            winnerPhone: data.registrations?.telefone || 'N/A',
+            winnerRegistrationNumber: data.registrations?.cpf || 'N/A',
+            responsavelId: data.responsavel_id,
+            responsavelName: data.admin_users?.nome || 'Responsável não localizado',
+            totalInscritos: data.total_inscritos,
+            novosInscritos: data.novosInscritos,
+            dataSorteio: data.data_sorteio
+        };
     }
 }
